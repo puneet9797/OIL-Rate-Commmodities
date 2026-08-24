@@ -2,15 +2,32 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 
-const SETTINGS_FILE = path.join(process.cwd(), "settings.json");
+const IS_VERCEL = !!process.env.VERCEL;
+const BASE_DIR = IS_VERCEL ? "/tmp" : process.cwd();
+
+const SETTINGS_FILE_TMP = path.join(BASE_DIR, "settings.json");
+const SETTINGS_FILE_VAR = path.join(process.cwd(), "settings.json");
+
+async function readSettings() {
+  try {
+    const data = await fs.readFile(SETTINGS_FILE_TMP, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    try {
+      const data = await fs.readFile(SETTINGS_FILE_VAR, "utf-8");
+      const settings = JSON.parse(data);
+      // Cache settings file in the writeable directory
+      await fs.writeFile(SETTINGS_FILE_TMP, JSON.stringify(settings, null, 2), "utf-8");
+      return settings;
+    } catch {
+      return {};
+    }
+  }
+}
 
 export async function GET() {
   try {
-    const data = await fs.readFile(SETTINGS_FILE, "utf-8");
-    const settings = JSON.parse(data);
-    
-    // We can return the settings, but to hide password in general GET calls,
-    // we can return it. (Only admin accesses settings GET, so it is safe).
+    const settings = await readSettings();
     return NextResponse.json({ success: true, data: settings });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message });
@@ -31,7 +48,7 @@ export async function POST(request: Request) {
       dataPagePath: dataPagePath || "ViewInfoMobile.aspx"
     };
 
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(newSettings, null, 2), "utf-8");
+    await fs.writeFile(SETTINGS_FILE_TMP, JSON.stringify(newSettings, null, 2), "utf-8");
     return NextResponse.json({ success: true, data: newSettings });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message });

@@ -2,21 +2,33 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 
-const USERS_FILE = path.join(process.cwd(), "users.json");
+const IS_VERCEL = !!process.env.VERCEL;
+const BASE_DIR = IS_VERCEL ? "/tmp" : process.cwd();
+
+const USERS_FILE_TMP = path.join(BASE_DIR, "users.json");
+const USERS_FILE_VAR = path.join(process.cwd(), "users.json");
 
 // Helper to read users list
 async function readUsers() {
   try {
-    const data = await fs.readFile(USERS_FILE, "utf-8");
+    const data = await fs.readFile(USERS_FILE_TMP, "utf-8");
     return JSON.parse(data);
   } catch {
-    return [];
+    try {
+      const data = await fs.readFile(USERS_FILE_VAR, "utf-8");
+      const users = JSON.parse(data);
+      // Cache users file in the writeable directory
+      await fs.writeFile(USERS_FILE_TMP, JSON.stringify(users, null, 2), "utf-8");
+      return users;
+    } catch {
+      return [];
+    }
   }
 }
 
 // Helper to write users list
 async function writeUsers(users: any[]) {
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
+  await fs.writeFile(USERS_FILE_TMP, JSON.stringify(users, null, 2), "utf-8");
 }
 
 export async function POST(request: Request) {

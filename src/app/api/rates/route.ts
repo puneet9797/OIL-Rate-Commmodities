@@ -15,7 +15,28 @@ import {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
-const SETTINGS_FILE = path.join(process.cwd(), "settings.json");
+const IS_VERCEL = !!process.env.VERCEL;
+const BASE_DIR = IS_VERCEL ? "/tmp" : process.cwd();
+
+const SETTINGS_FILE_TMP = path.join(BASE_DIR, "settings.json");
+const SETTINGS_FILE_VAR = path.join(process.cwd(), "settings.json");
+
+async function readSettings() {
+  try {
+    const data = await fs.readFile(SETTINGS_FILE_TMP, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    try {
+      const data = await fs.readFile(SETTINGS_FILE_VAR, "utf-8");
+      const settings = JSON.parse(data);
+      // Cache settings file in the writeable directory
+      await fs.writeFile(SETTINGS_FILE_TMP, JSON.stringify(settings, null, 2), "utf-8");
+      return settings;
+    } catch {
+      return {};
+    }
+  }
+}
 
 /**
  * POST /api/rates
@@ -37,8 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Try loading server-side configuration first
     try {
-      const data = await fs.readFile(SETTINGS_FILE, "utf-8");
-      const settings = JSON.parse(data);
+      const settings = await readSettings();
       baseUrl = settings.baseUrl;
       username = settings.username;
       password = settings.password;
