@@ -550,8 +550,8 @@ export default function DashboardPage() {
       <div className="login-viewport">
         <div className="login-card glass-card fade-in">
           <div className="login-header">
-            <span style={{ fontSize: "2.2rem" }}>🛢️</span>
-            <h2>Live Rates Terminal</h2>
+            <span style={{ fontSize: "2.2rem" }}>⚡</span>
+            <h2 style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontWeight: 850 }}>RSVPAI Terminal</h2>
             <p>Enter your credentials to access the rates panel</p>
           </div>
 
@@ -621,7 +621,7 @@ export default function DashboardPage() {
 
       {/* Print-only header */}
       <div className="print-header">
-        <h1>Live Oil Rates Report</h1>
+        <h1>RSVPAI Live Oil Rates Report</h1>
         <p>Last Updated: {lastUpdated || "—"}</p>
       </div>
 
