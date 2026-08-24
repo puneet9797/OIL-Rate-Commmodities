@@ -297,26 +297,8 @@ export default function DashboardPage() {
     setConnectionStatus("connecting");
 
     try {
-      const serializedConfig = btoa(
-        unescape(
-          encodeURIComponent(
-            JSON.stringify({
-              baseUrl: settings.baseUrl,
-              username: settings.username,
-              password: settings.password,
-              theme: settings.theme,
-              dataPagePath: settings.dataPagePath,
-            })
-          )
-        )
-      );
-
       const res = await fetch("/api/rates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payload: serializedConfig
-        })
+        method: "POST"
       });
 
       const json = await res.json();
@@ -475,27 +457,9 @@ export default function DashboardPage() {
         body: JSON.stringify(settings),
       });
 
-      // 2. Poll rates from API with custom header configuration
-      const serializedConfig = btoa(
-        unescape(
-          encodeURIComponent(
-            JSON.stringify({
-              baseUrl: settings.baseUrl,
-              username: settings.username,
-              password: settings.password,
-              theme: settings.theme,
-              dataPagePath: settings.dataPagePath,
-            })
-          )
-        )
-      );
-
+      // 2. Poll rates from API with an empty body (uses server-side settings)
       const res = await fetch("/api/rates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payload: serializedConfig
-        })
+        method: "POST"
       });
 
       const json = await res.json();

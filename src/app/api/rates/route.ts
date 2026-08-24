@@ -70,43 +70,16 @@ export async function POST(request: NextRequest) {
     let theme = "WhiteGreen";
     let dataPagePath = "ViewInfoMobile.aspx";
 
-    // Load config from JSON body payload (handles Vercel serverless container statelessness & prevents header stripping)
+    // Load configuration from local server settings.json file ONLY
     try {
-      const body = await request.json();
-      const payload = body.payload;
-      
-      if (payload) {
-        const decodedStr = Buffer.from(payload, "base64").toString("utf-8");
-        const config = JSON.parse(decodedStr);
-        baseUrl = config.baseUrl;
-        username = config.username;
-        password = config.password;
-        theme = config.theme || "WhiteGreen";
-        dataPagePath = config.dataPagePath || "ViewInfoMobile.aspx";
-      } else {
-        // Fallback for direct params (e.g. legacy/testing)
-        baseUrl = body.baseUrl;
-        username = body.username;
-        password = body.password;
-        theme = body.theme || "WhiteGreen";
-        dataPagePath = body.dataPagePath || "ViewInfoMobile.aspx";
-      }
-    } catch {
-      // Body empty or unreadable
-    }
-
-    // Fallback to local server settings.json file if request config not complete
-    if (!baseUrl || !username || !password) {
-      try {
-        const settings = await readSettings();
-        baseUrl = settings.baseUrl;
-        username = settings.username;
-        password = settings.password;
-        theme = settings.theme;
-        dataPagePath = settings.dataPagePath;
-      } catch {
-        // Ignore
-      }
+      const settings = await readSettings();
+      baseUrl = settings.baseUrl;
+      username = settings.username;
+      password = settings.password;
+      theme = settings.theme || "WhiteGreen";
+      dataPagePath = settings.dataPagePath || "ViewInfoMobile.aspx";
+    } catch (err) {
+      console.error("Failed to load server settings:", err);
     }
 
     if (!baseUrl || !username || !password) {
