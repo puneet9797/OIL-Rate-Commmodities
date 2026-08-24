@@ -552,7 +552,8 @@ export default function DashboardPage() {
           <div className="login-header">
             <span style={{ fontSize: "2.2rem" }}>⚡</span>
             <h2 style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontWeight: 850 }}>RSVPAI Terminal</h2>
-            <p>Enter your credentials to access the rates panel</p>
+            <p style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "-4px" }}>under JPPL Group</p>
+            <p style={{ marginTop: "4px" }}>Enter your credentials to access the rates panel</p>
           </div>
 
           <form onSubmit={handleLoginSubmit} className="login-form">
@@ -622,6 +623,7 @@ export default function DashboardPage() {
       {/* Print-only header */}
       <div className="print-header">
         <h1>RSVPAI Live Oil Rates Report</h1>
+        <p style={{ fontSize: "0.75rem", color: "#555", fontWeight: 600, marginTop: "2px", textAlign: "center" }}>JPPL Group</p>
         <p>Last Updated: {lastUpdated || "—"}</p>
       </div>
 
