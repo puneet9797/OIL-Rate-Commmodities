@@ -3,6 +3,6 @@
   "username": "anurag21",
   "password": "anurag21",
   "theme": "WhiteGreen",
-  "refreshInterval": 3,
+  "refreshInterval": 1,
   "dataPagePath": "ViewInfoMobile.aspx"
 }

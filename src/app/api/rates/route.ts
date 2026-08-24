@@ -18,6 +18,13 @@ const UA =
 const IS_VERCEL = !!process.env.VERCEL;
 const BASE_DIR = IS_VERCEL ? "/tmp" : process.cwd();
 
+function proxify(url: string) {
+  if (IS_VERCEL) {
+    return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 const SETTINGS_FILE_TMP = path.join(BASE_DIR, "settings.json");
 const SETTINGS_FILE_VAR = path.join(process.cwd(), "settings.json");
 
@@ -188,7 +195,8 @@ async function doLogin(
     url: string,
     opts: RequestInit & { headers: Record<string, string> }
   ): Promise<{ res: Response; body: string; finalUrl: string }> {
-    let currentUrl = url;
+    let originalUrl = url;
+    let currentUrl = proxify(originalUrl);
     let res = await fetch(currentUrl, { ...opts, redirect: "manual", cache: "no-store" });
     cookie = mergeCookies(cookie, res.headers);
 
@@ -197,7 +205,8 @@ async function doLogin(
     while (res.status >= 300 && res.status < 400 && hops < 10) {
       const loc = res.headers.get("location");
       if (!loc) break;
-      currentUrl = new URL(loc, currentUrl).href;
+      originalUrl = new URL(loc, originalUrl).href;
+      currentUrl = proxify(originalUrl);
       res = await fetch(currentUrl, {
         method: "GET",
         headers: { "User-Agent": UA, Cookie: cookie },
@@ -209,7 +218,7 @@ async function doLogin(
     }
 
     const body = await res.text();
-    return { res, body, finalUrl: currentUrl };
+    return { res, body, finalUrl: originalUrl };
   }
 
   // 1. GET login page
@@ -298,7 +307,7 @@ async function doAjaxPost(
     `__ASYNCPOST=true`,
   ].join("&");
 
-  const res = await fetch(dataUrl, {
+  const res = await fetch(proxify(dataUrl), {
     method: "POST",
     headers: {
       "User-Agent": UA,

@@ -61,7 +61,7 @@ function resequenceRates(data: RatesData): RatesData {
     { key: "oil", header: "OIL - CBOT EXCHANGE, USA(CHICAGO)" },
     { key: "seed", header: "SEED - CBOT EXCHANGE, USA(CHICAGO)" },
     { key: "meal", header: "MEAL - CBOT EXCHANGE, USA(CHICAGO)" },
-    { key: "castor", header: "CASTUR - INDIA" },
+    { key: "castor", header: "CASTOR - INDIA" },
     { key: "forex", header: "FOREX - INDIA, (USINDR)" },
     { key: "crude", header: "CRUDE OIL - INDIA" },
     { key: "klc", header: "KLC (Bursa Malaysia)" }
@@ -708,14 +708,14 @@ export default function DashboardPage() {
           <div>
             <h1 className="page-title">
               {activeTab === "dashboard" && "Market Dashboard Overview"}
-              {activeTab === "rateLive" && "Live Rates Feed"}
+              {activeTab === "rateLive" && "Live Rates"}
               {activeTab === "analytics" && "Market Analytics Charts"}
               {activeTab === "settings" && "API Connection Settings"}
               {activeTab === "users" && "User Accounts & Management"}
             </h1>
             <p className="page-subtitle">
               {activeTab === "dashboard" && "Summary stats cards and commodities metrics chart"}
-              {activeTab === "rateLive" && `Real-time rates comparison · Auto-refresh every ${settings.refreshInterval}s`}
+              {/* {activeTab === "rateLive" && `Real-time rates`} */}
               {activeTab === "analytics" && "Real-time commodities visual chart metrics"}
               {activeTab === "settings" && "Configure credentials and parameters of your ASP.NET rate feed"}
               {activeTab === "users" && "Create, review, and delete accounts and permissions in the system"}

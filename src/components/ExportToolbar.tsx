@@ -117,7 +117,8 @@ export default function ExportToolbar({ data, showToast }: ExportToolbarProps) {
         Print
       </button>
 
-      <button
+{/* Excel Export Button  */}
+      {/* <button
         className="btn btn-success"
         onClick={handleExcelExport}
         disabled={!hasData}
@@ -139,7 +140,7 @@ export default function ExportToolbar({ data, showToast }: ExportToolbarProps) {
           <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
         Export Excel
-      </button>
+      </button> */}
     </div>
   );
 }
