@@ -56,25 +56,43 @@ export async function POST(request: NextRequest) {
     let theme = "WhiteGreen";
     let dataPagePath = "ViewInfoMobile.aspx";
 
-    // Try loading server-side configuration first
-    try {
-      const settings = await readSettings();
-      baseUrl = settings.baseUrl;
-      username = settings.username;
-      password = settings.password;
-      theme = settings.theme;
-      dataPagePath = settings.dataPagePath;
-    } catch {
-      // Fallback to request body if settings.json not found
+    // Try loading config from custom header first (handles Vercel serverless container statelessness)
+    const headerVal = request.headers.get("x-rates-config");
+    if (headerVal) {
       try {
-        const body = await request.json();
-        baseUrl = body.baseUrl;
-        username = body.username;
-        password = body.password;
-        theme = body.theme || "WhiteGreen";
-        dataPagePath = body.dataPagePath || "ViewInfoMobile.aspx";
+        const decodedStr = Buffer.from(headerVal, "base64").toString("utf-8");
+        const config = JSON.parse(decodedStr);
+        baseUrl = config.baseUrl;
+        username = config.username;
+        password = config.password;
+        theme = config.theme || "WhiteGreen";
+        dataPagePath = config.dataPagePath || "ViewInfoMobile.aspx";
+      } catch (err) {
+        console.error("Failed to parse x-rates-config header:", err);
+      }
+    }
+
+    // Fallback to local server settings.json file if header config not complete
+    if (!baseUrl || !username || !password) {
+      try {
+        const settings = await readSettings();
+        baseUrl = settings.baseUrl;
+        username = settings.username;
+        password = settings.password;
+        theme = settings.theme;
+        dataPagePath = settings.dataPagePath;
       } catch {
-        // Ignore
+        // Fallback to request body if settings.json not found
+        try {
+          const body = await request.json();
+          baseUrl = body.baseUrl;
+          username = body.username;
+          password = body.password;
+          theme = body.theme || "WhiteGreen";
+          dataPagePath = body.dataPagePath || "ViewInfoMobile.aspx";
+        } catch {
+          // Ignore
+        }
       }
     }
 

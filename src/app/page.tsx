@@ -297,8 +297,25 @@ export default function DashboardPage() {
     setConnectionStatus("connecting");
 
     try {
+      const serializedConfig = btoa(
+        unescape(
+          encodeURIComponent(
+            JSON.stringify({
+              baseUrl: settings.baseUrl,
+              username: settings.username,
+              password: settings.password,
+              theme: settings.theme,
+              dataPagePath: settings.dataPagePath,
+            })
+          )
+        )
+      );
+
       const res = await fetch("/api/rates", {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "x-rates-config": serializedConfig
+        }
       });
 
       const json = await res.json();
@@ -397,6 +414,7 @@ export default function DashboardPage() {
       refreshInterval: sanitizedInterval,
     };
     setSettings(sanitizedSettings);
+    localStorage.setItem("liverates_settings", JSON.stringify(sanitizedSettings));
 
     try {
       const res = await fetch("/api/settings", {
@@ -420,6 +438,7 @@ export default function DashboardPage() {
 
   const handleSettingsReset = async () => {
     setSettings(DEFAULT_SETTINGS);
+    localStorage.setItem("liverates_settings", JSON.stringify(DEFAULT_SETTINGS));
     try {
       await fetch("/api/settings", {
         method: "POST",
@@ -448,16 +467,33 @@ export default function DashboardPage() {
     showToast("Testing connection...", "info");
 
     try {
-      // 1. Save settings to server first so rates API loads them
+      // 1. Save settings to server first so rates API loads them locally if needed
       await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
 
-      // 2. Poll rates from API with an empty body (hides password)
+      // 2. Poll rates from API with custom header configuration
+      const serializedConfig = btoa(
+        unescape(
+          encodeURIComponent(
+            JSON.stringify({
+              baseUrl: settings.baseUrl,
+              username: settings.username,
+              password: settings.password,
+              theme: settings.theme,
+              dataPagePath: settings.dataPagePath,
+            })
+          )
+        )
+      );
+
       const res = await fetch("/api/rates", {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "x-rates-config": serializedConfig
+        }
       });
 
       const json = await res.json();
