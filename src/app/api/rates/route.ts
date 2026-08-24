@@ -23,8 +23,22 @@ const SETTINGS_FILE_VAR = path.join(process.cwd(), "settings.json");
 
 async function readSettings() {
   try {
-    const data = await fs.readFile(SETTINGS_FILE_TMP, "utf-8");
-    return JSON.parse(data);
+    const dataTmp = await fs.readFile(SETTINGS_FILE_TMP, "utf-8");
+    const settingsTmp = JSON.parse(dataTmp);
+
+    // Sync check: if defaults changed in code, overwrite /tmp cache
+    try {
+      const dataVar = await fs.readFile(SETTINGS_FILE_VAR, "utf-8");
+      const settingsVar = JSON.parse(dataVar);
+      if (settingsTmp.username !== settingsVar.username || settingsTmp.password !== settingsVar.password) {
+        await fs.writeFile(SETTINGS_FILE_TMP, JSON.stringify(settingsVar, null, 2), "utf-8");
+        return settingsVar;
+      }
+    } catch {
+      // Ignore
+    }
+
+    return settingsTmp;
   } catch {
     try {
       const data = await fs.readFile(SETTINGS_FILE_VAR, "utf-8");

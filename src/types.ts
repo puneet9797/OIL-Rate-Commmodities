@@ -24,8 +24,8 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   baseUrl: "http://173.212.235.147/web/OIL/DetailView/",
-  username: "satyam70",
-  password: "satyam70",
+  username: "anurag21",
+  password: "anurag21",
   theme: "WhiteGreen",
   refreshInterval: 3,
   dataPagePath: "ViewInfoMobile.aspx",
