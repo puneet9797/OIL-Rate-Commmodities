@@ -243,7 +243,7 @@ async function doLogin(
   });
 
   // 4. GET data page to capture viewstate
-  const { body: dataHtml } = await fetchWithCookies(dataUrl, {
+  const { res: dataRes, body: dataHtml, finalUrl: dataFinalUrl } = await fetchWithCookies(dataUrl, {
     method: "GET",
     headers: { "User-Agent": UA, Cookie: cookie },
   });
@@ -252,10 +252,20 @@ async function doLogin(
   const viewGen = extractHiddenField(dataHtml, "__VIEWSTATEGENERATOR");
 
   if (!viewState) {
+    console.warn("doLogin viewstate check failed. status:", dataRes?.status, "finalUrl:", dataFinalUrl);
+    
+    // Check if the rate host blocked us
+    const lowerHtml = dataHtml.toLowerCase();
+    if (dataRes?.status === 403 || lowerHtml.includes("blocked") || lowerHtml.includes("forbidden") || lowerHtml.includes("access denied")) {
+      return {
+        success: false,
+        error: "Access Denied (IP Blocked): The rate feed host is blocking requests from Vercel's US-based servers.",
+      };
+    }
+
     return {
       success: false,
-      error:
-        "Login failed or viewstate not found. Check username/password.",
+      error: "Login failed or viewstate not found. Check username/password or base URL.",
     };
   }
 
