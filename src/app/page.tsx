@@ -197,7 +197,7 @@ export default function DashboardPage() {
         const res = await fetch("/api/settings");
         const json = await res.json();
         if (json.success && json.data) {
-          setSettings(json.data);
+          setSettings({ ...DEFAULT_SETTINGS, ...json.data });
         }
       } catch {
         // Local fallback
