@@ -199,6 +199,7 @@ a:hover {
 .navbar-status {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 6px 14px;
   border-radius: 999px;
@@ -206,6 +207,8 @@ a:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  width: 125px; /* Fixed width prevents shifting other components when connection text changes */
+  flex-shrink: 0;
 }
 
 .navbar-status.connected {
