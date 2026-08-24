@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import fs from "fs/promises";
+import path from "path";
 import {
   getSession,
   setSession,
@@ -13,30 +15,52 @@ import {
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
 
+const SETTINGS_FILE = path.join(process.cwd(), "settings.json");
+
 /**
  * POST /api/rates
- * Body: { baseUrl, username, password, theme, dataPagePath }
  *
  * Acts as a server-side proxy:
- *  1. Login to ClientLogin.aspx (if not already logged in)
- *  2. GET the data page to capture __VIEWSTATE
- *  3. POST the Timer1 AJAX request for rate data
- *  4. Parse the HTML table and return clean JSON
+ *  1. Load baseUrl, username, password from settings.json (Server-side)
+ *  2. Login to ClientLogin.aspx (if not already logged in)
+ *  3. GET the data page to capture __VIEWSTATE
+ *  4. POST the Timer1 AJAX request for rate data
+ *  5. Parse the HTML table and return clean JSON
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      baseUrl,
-      username,
-      password,
-      theme = "WhiteGreen",
-      dataPagePath = "ViewInfoMobile.aspx",
-    } = body;
+    let baseUrl = "";
+    let username = "";
+    let password = "";
+    let theme = "WhiteGreen";
+    let dataPagePath = "ViewInfoMobile.aspx";
+
+    // Try loading server-side configuration first
+    try {
+      const data = await fs.readFile(SETTINGS_FILE, "utf-8");
+      const settings = JSON.parse(data);
+      baseUrl = settings.baseUrl;
+      username = settings.username;
+      password = settings.password;
+      theme = settings.theme;
+      dataPagePath = settings.dataPagePath;
+    } catch {
+      // Fallback to request body if settings.json not found
+      try {
+        const body = await request.json();
+        baseUrl = body.baseUrl;
+        username = body.username;
+        password = body.password;
+        theme = body.theme || "WhiteGreen";
+        dataPagePath = body.dataPagePath || "ViewInfoMobile.aspx";
+      } catch {
+        // Ignore
+      }
+    }
 
     if (!baseUrl || !username || !password) {
       return NextResponse.json(
-        { success: false, error: "Missing baseUrl, username, or password" },
+        { success: false, error: "Missing API credentials on server. Please configure settings first." },
         { status: 400 }
       );
     }

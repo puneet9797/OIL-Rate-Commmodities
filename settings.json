@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://173.212.235.147/web/OIL/DetailView/",
+  "username": "satyam70",
+  "password": "satyam70",
+  "theme": "WhiteGreen",
+  "refreshInterval": 3,
+  "dataPagePath": "ViewInfoMobile.aspx"
+}

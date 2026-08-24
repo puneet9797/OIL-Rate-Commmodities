@@ -173,15 +173,58 @@ export default function DashboardPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Load settings, users & compact layout state from localStorage on init
-  useEffect(() => {
+  const refreshUsersList = useCallback(async () => {
     try {
-      const saved = localStorage.getItem("liverates_settings");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list" })
+      });
+      const data = await res.json();
+      if (data.success && data.users) {
+        setUsers(data.users);
       }
-      
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  // Load settings, users & compact layout state on init
+  useEffect(() => {
+    const initApp = async () => {
+      // Fetch settings from server-side config database
+      try {
+        const res = await fetch("/api/settings");
+        const json = await res.json();
+        if (json.success && json.data) {
+          setSettings(json.data);
+        }
+      } catch {
+        // Local fallback
+        const saved = localStorage.getItem("liverates_settings");
+        if (saved) {
+          setSettings(JSON.parse(saved));
+        }
+      }
+
+      // Restore session state
+      try {
+        const savedSession = localStorage.getItem("liverates_logged_in_user");
+        if (savedSession) {
+          const user = JSON.parse(savedSession);
+          setLoggedInUser(user);
+          if (user.role === "admin") {
+            refreshUsersList();
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    };
+
+    initApp();
+
+    try {
       const savedCompact = localStorage.getItem("liverates_compact");
       if (savedCompact) {
         setIsCompactLayout(JSON.parse(savedCompact));
@@ -191,31 +234,10 @@ export default function DashboardPage() {
       if (savedTheme === "light" || savedTheme === "dark") {
         setAppTheme(savedTheme);
       }
-
-      // Initialize default users if database is empty
-      const savedUsers = localStorage.getItem("liverates_users");
-      let currentUsersList = [];
-      if (!savedUsers) {
-        const initialUsers = [
-          { username: "admin", password: "admin123", role: "admin" as const },
-          { username: "user", password: "user123", role: "user" as const }
-        ];
-        localStorage.setItem("liverates_users", JSON.stringify(initialUsers));
-        currentUsersList = initialUsers;
-      } else {
-        currentUsersList = JSON.parse(savedUsers);
-      }
-      setUsers(currentUsersList);
-
-      // Restore session state
-      const savedSession = localStorage.getItem("liverates_logged_in_user");
-      if (savedSession) {
-        setLoggedInUser(JSON.parse(savedSession));
-      }
     } catch {
       // Ignore parse errors — use defaults
     }
-  }, []);
+  }, [refreshUsersList]);
 
   // Update HTML data-theme attribute whenever appTheme changes
   useEffect(() => {
@@ -269,26 +291,14 @@ export default function DashboardPage() {
   // Fetch rates from our API proxy
   const fetchRates = useCallback(async () => {
     if (isFetchingRef.current) return;
-    if (!settings.baseUrl || !settings.username || !settings.password) {
-      setConnectionStatus("disconnected");
-      setError("Please configure API settings first. Go to Settings tab.");
-      return;
-    }
+    if (!loggedInUser) return; // Do not call rate API if user is not logged in
 
     isFetchingRef.current = true;
     setConnectionStatus("connecting");
 
     try {
       const res = await fetch("/api/rates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: settings.baseUrl,
-          username: settings.username,
-          password: settings.password,
-          theme: settings.theme,
-          dataPagePath: settings.dataPagePath,
-        }),
+        method: "POST"
       });
 
       const json = await res.json();
@@ -335,7 +345,7 @@ export default function DashboardPage() {
 
   // Auto-refresh timer
   useEffect(() => {
-    if (!isAutoRefresh || !settings.baseUrl) return;
+    if (!loggedInUser || !isAutoRefresh || !settings.baseUrl) return;
 
     // Initial fetch
     fetchRates();
@@ -348,11 +358,11 @@ export default function DashboardPage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [settings.baseUrl, settings.username, settings.password, settings.refreshInterval, isAutoRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loggedInUser, settings.baseUrl, settings.username, settings.password, settings.refreshInterval, isAutoRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer
   useEffect(() => {
-    if (!isAutoRefresh || connectionStatus !== "connected") return;
+    if (!loggedInUser || !isAutoRefresh || connectionStatus !== "connected") return;
 
     setCountdown(settings.refreshInterval);
 
@@ -365,7 +375,7 @@ export default function DashboardPage() {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [isAutoRefresh, connectionStatus, settings.refreshInterval, lastUpdated]);
+  }, [loggedInUser, isAutoRefresh, connectionStatus, settings.refreshInterval, lastUpdated]);
 
   // Settings inputs handlers
   const handleSettingsChange = (
@@ -380,25 +390,48 @@ export default function DashboardPage() {
     setTestResult(null);
   };
 
-  const handleSettingsSave = () => {
+  const handleSettingsSave = async () => {
     const sanitizedInterval = Math.max(1, parseInt(String(settings.refreshInterval)) || 1);
     const sanitizedSettings = {
       ...settings,
       refreshInterval: sanitizedInterval,
     };
     setSettings(sanitizedSettings);
-    localStorage.setItem("liverates_settings", JSON.stringify(sanitizedSettings));
+
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sanitizedSettings),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Settings saved on server successfully!", "success");
+      } else {
+        showToast(data.error || "Failed to save settings on server.", "error");
+      }
+    } catch {
+      showToast("Settings server service unavailable.", "error");
+    }
+
     setSettingsSaved(true);
-    showToast("Settings saved successfully!", "success");
     setTimeout(() => setSettingsSaved(false), 3000);
   };
 
-  const handleSettingsReset = () => {
+  const handleSettingsReset = async () => {
     setSettings(DEFAULT_SETTINGS);
-    localStorage.removeItem("liverates_settings");
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(DEFAULT_SETTINGS),
+      });
+      showToast("Settings reset to defaults.", "info");
+    } catch {
+      showToast("Failed to reset settings on server.", "error");
+    }
     setSettingsSaved(false);
     setTestResult(null);
-    showToast("Settings reset to defaults.", "info");
   };
 
   const handleTestConnection = async () => {
@@ -415,16 +448,16 @@ export default function DashboardPage() {
     showToast("Testing connection...", "info");
 
     try {
-      const res = await fetch("/api/rates", {
+      // 1. Save settings to server first so rates API loads them
+      await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: settings.baseUrl,
-          username: settings.username,
-          password: settings.password,
-          theme: settings.theme,
-          dataPagePath: settings.dataPagePath,
-        }),
+        body: JSON.stringify(settings),
+      });
+
+      // 2. Poll rates from API with an empty body (hides password)
+      const res = await fetch("/api/rates", {
+        method: "POST"
       });
 
       const json = await res.json();
@@ -454,23 +487,36 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
 
-    const found = users.find(
-      (u) => u.username === loginUsername.trim() && u.password === loginPassword
-    );
-
-    if (found) {
-      const userSession = { username: found.username, role: found.role };
-      localStorage.setItem("liverates_logged_in_user", JSON.stringify(userSession));
-      setLoggedInUser(userSession);
-      showToast(`Welcome back, ${found.username}!`, "success");
-      setLoginUsername("");
-      setLoginPassword("");
-    } else {
-      setLoginError("Invalid username or password. Check credentials below.");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "login",
+          username: loginUsername.trim(),
+          password: btoa(loginPassword) // Hides plain-text credentials in request payload inspect tab
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        const userSession = { username: data.user.username, role: data.user.role };
+        localStorage.setItem("liverates_logged_in_user", JSON.stringify(userSession));
+        setLoggedInUser(userSession);
+        showToast(`Welcome back, ${data.user.username}!`, "success");
+        setLoginUsername("");
+        setLoginPassword("");
+        if (data.user.role === "admin") {
+          refreshUsersList();
+        }
+      } else {
+        setLoginError(data.error || "Invalid username or password.");
+      }
+    } catch {
+      setLoginError("Login service is currently offline.");
     }
   };
 
@@ -481,7 +527,7 @@ export default function DashboardPage() {
     showToast("Signed out successfully.", "info");
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserFormError("");
 
@@ -493,30 +539,57 @@ export default function DashboardPage() {
       return;
     }
 
-    if (users.some((u) => u.username.toLowerCase() === name.toLowerCase())) {
-      setUserFormError("Username already exists.");
-      return;
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          username: name,
+          password: btoa(pass), // Hides password in plain text payload
+          role: newRole
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.users);
+        showToast(`User ${name} created successfully!`, "success");
+        setNewUsername("");
+        setNewPassword("");
+        setNewRole("user");
+      } else {
+        setUserFormError(data.error || "Failed to create user.");
+      }
+    } catch {
+      setUserFormError("User database offline.");
     }
-
-    const updatedUsers = [...users, { username: name, password: pass, role: newRole }];
-    localStorage.setItem("liverates_users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    showToast(`User ${name} created successfully!`, "success");
-    setNewUsername("");
-    setNewPassword("");
-    setNewRole("user");
   };
 
-  const handleDeleteUser = (usernameToDelete: string) => {
+  const handleDeleteUser = async (usernameToDelete: string) => {
     if (usernameToDelete === loggedInUser?.username) {
       showToast("You cannot delete yourself!", "error");
       return;
     }
 
-    const updatedUsers = users.filter((u) => u.username !== usernameToDelete);
-    localStorage.setItem("liverates_users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    showToast(`User ${usernameToDelete} deleted.`, "info");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          username: usernameToDelete
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.users);
+        showToast(`User ${usernameToDelete} deleted.`, "info");
+      } else {
+        showToast(data.error || "Failed to delete user.", "error");
+      }
+    } catch {
+      showToast("User database offline.", "error");
+    }
   };
   
   // Toggle Compact layout and save
