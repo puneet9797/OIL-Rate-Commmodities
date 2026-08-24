@@ -313,9 +313,10 @@ export default function DashboardPage() {
 
       const res = await fetch("/api/rates", {
         method: "POST",
-        headers: {
-          "x-rates-config": serializedConfig
-        }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload: serializedConfig
+        })
       });
 
       const json = await res.json();
@@ -491,9 +492,10 @@ export default function DashboardPage() {
 
       const res = await fetch("/api/rates", {
         method: "POST",
-        headers: {
-          "x-rates-config": serializedConfig
-        }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload: serializedConfig
+        })
       });
 
       const json = await res.json();
