@@ -341,7 +341,7 @@ export default function DashboardPage() {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [settings, ratesData]);
+  }, [settings, ratesData, loggedInUser]);
 
   // Auto-refresh timer
   useEffect(() => {
@@ -358,7 +358,7 @@ export default function DashboardPage() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [loggedInUser, settings.baseUrl, settings.username, settings.password, settings.refreshInterval, isAutoRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loggedInUser, settings.baseUrl, settings.refreshInterval, isAutoRefresh, fetchRates]);
 
   // Countdown timer
   useEffect(() => {
