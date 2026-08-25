@@ -1946,5 +1946,10 @@ body.fullscreen-mode-enabled .toast-container {
   background: rgba(0, 0, 0, 0.2) !important;
 }
 
-
-
+/* Make badges inside highlighted positive/negative background cells white and clean */
+.rates-table td.cell-bg-positive .change-badge,
+.rates-table td.cell-bg-negative .change-badge {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
