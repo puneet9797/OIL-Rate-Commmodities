@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+
+// Force this serverless function to run in Frankfurt (fra1) region
+// The rate provider (173.212.235.147) is hosted in Germany and blocks US IPs
+export const preferredRegion = "fra1";
+export const maxDuration = 30;
 import * as cheerio from "cheerio";
 import fs from "fs/promises";
 import path from "path";
@@ -11,11 +16,6 @@ import {
   extractHiddenField,
   extractDeltaField,
 } from "./session";
-
-// Force this serverless function to run in Frankfurt (fra1) region
-// The rate provider (173.212.235.147) is hosted in Germany and blocks US IPs
-export const preferredRegion = "fra1";
-export const maxDuration = 30;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36";
@@ -100,18 +100,29 @@ export async function POST(request: NextRequest) {
     )}&Theme=${encodeURIComponent(theme)}`;
 
     const key = sessionKey(base, username, theme);
-    let sess = getSession(key);
+    
+    // ── Load session from client cookies (persists across Vercel cold starts) ──
+    const sessionCookieVal = request.cookies.get("liverates_session")?.value;
+    let sess: { cookie: string; viewState: string; viewGen: string } | null = null;
+    
+    if (sessionCookieVal) {
+      try {
+        sess = JSON.parse(Buffer.from(sessionCookieVal, "base64").toString("utf-8"));
+      } catch {
+        sess = null;
+      }
+    }
 
-    // ── Login + grab viewstate if not already done ───────────
-    if (!sess || !sess.loggedIn || !sess.viewState) {
+    // ── Login if no active session cookie ────────────────────
+    if (!sess) {
       const loginResult = await doLogin(base, username, password, dataUrl, key);
-      if (!loginResult.success) {
+      if (!loginResult.success || !loginResult.session) {
         return NextResponse.json(
-          { success: false, error: loginResult.error },
+          { success: false, error: loginResult.error || "Login failed" },
           { status: 401 }
         );
       }
-      sess = getSession(key)!;
+      sess = loginResult.session;
     }
 
     // ── Timer1 AJAX POST for rates ──────────────────────────
@@ -124,15 +135,14 @@ export async function POST(request: NextRequest) {
 
     // If no valid data rows found, session may have expired — retry login
     if (parsed.rowCount <= 1) {
-      clearSession(key);
       const loginResult = await doLogin(base, username, password, dataUrl, key);
-      if (!loginResult.success) {
+      if (!loginResult.success || !loginResult.session) {
         return NextResponse.json(
-          { success: false, error: loginResult.error },
+          { success: false, error: loginResult.error || "Login expired and retry failed" },
           { status: 401 }
         );
       }
-      sess = getSession(key)!;
+      sess = loginResult.session;
       resp = await doAjaxPost(dataUrl, sess);
       
       const htmlStartSecond = resp.indexOf("<");
@@ -154,16 +164,26 @@ export async function POST(request: NextRequest) {
     // ── Update viewstate from delta ─────────────────────────
     const newVS = extractDeltaField(resp, "__VIEWSTATE");
     const newVG = extractDeltaField(resp, "__VIEWSTATEGENERATOR");
-    if (newVS) setSession(key, { viewState: newVS });
-    if (newVG) setSession(key, { viewGen: newVG });
+    if (newVS) sess.viewState = newVS;
+    if (newVG) sess.viewGen = newVG;
 
-    return NextResponse.json({
+    // ── Save session back to client cookies ────────────────
+    const response = NextResponse.json({
       success: true,
       data: {
         ...parsed,
         timestamp: new Date().toISOString(),
       },
     });
+
+    response.cookies.set("liverates_session", Buffer.from(JSON.stringify(sess)).toString("base64"), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 30 * 60, // 30 minutes session
+    });
+
+    return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("API /rates error:", msg);
@@ -182,7 +202,7 @@ async function doLogin(
   password: string,
   dataUrl: string,
   key: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; session?: { cookie: string; viewState: string; viewGen: string } }> {
   let cookie = "";
 
   /**
@@ -241,7 +261,7 @@ async function doLogin(
   }
 
   // 3. POST login (will 302 → ThemePage.aspx with passCookies)
-  await fetchWithCookies(loginPageUrl, {
+  const { body: postHtml } = await fetchWithCookies(loginPageUrl, {
     method: "POST",
     headers: {
       "User-Agent": UA,
@@ -250,6 +270,14 @@ async function doLogin(
     },
     body: loginBody,
   });
+
+  // Check for rate limiter text
+  if (postHtml.includes("login after")) {
+    return {
+      success: false,
+      error: "Rate limited: Too many login attempts. Please wait 1 minute before trying again.",
+    };
+  }
 
   // 4. GET data page to capture viewstate
   const { res: dataRes, body: dataHtml, finalUrl: dataFinalUrl } = await fetchWithCookies(dataUrl, {
@@ -268,7 +296,7 @@ async function doLogin(
     if (dataRes?.status === 403 || lowerHtml.includes("blocked") || lowerHtml.includes("forbidden") || lowerHtml.includes("access denied")) {
       return {
         success: false,
-        error: "Access Denied (IP Blocked): The rate feed host is blocking requests from Vercel's US-based servers.",
+        error: "Access Denied (IP Blocked): The rate feed host is blocking requests from Vercel's servers.",
       };
     }
 
@@ -278,14 +306,18 @@ async function doLogin(
     };
   }
 
-  setSession(key, {
+  const sessionObj = {
     cookie,
     viewState,
     viewGen,
+  };
+
+  setSession(key, {
+    ...sessionObj,
     loggedIn: true,
   });
 
-  return { success: true };
+  return { success: true, session: sessionObj };
 }
 
 // ─── AJAX Post ──────────────────────────────────────────────────
