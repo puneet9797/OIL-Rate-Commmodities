@@ -58,13 +58,13 @@ function resequenceRates(data: RatesData): RatesData {
   const newRows: RateRow[] = [];
 
   const sequence = [
-    { key: "oil", header: "OIL - CBOT EXCHANGE, USA(CHICAGO)" },
-    { key: "seed", header: "SEED - CBOT EXCHANGE, USA(CHICAGO)" },
-    { key: "meal", header: "MEAL - CBOT EXCHANGE, USA(CHICAGO)" },
-    { key: "castor", header: "CASTOR - INDIA" },
     { key: "forex", header: "FOREX - INDIA, (USINDR)" },
     { key: "crude", header: "CRUDE OIL - INDIA" },
-    { key: "klc", header: "KLC (Bursa Malaysia)" }
+    { key: "klc", header: "KLC (Bursa Malaysia)" },
+    { key: "oil", header: "OIL - CBOT EXCHANGE, USA(CHICAGO)" },
+    { key: "seed", header: "SEED- CBOT EXCHANGE, USA(CHICAGO)" },
+    { key: "meal", header: "MEAL- CBOT EXCHANGE, USA(CHICAGO)" },
+    { key: "castor", header: "CASTOR - INDIA" }
   ];
 
   sequence.forEach(({ key, header }) => {
@@ -105,7 +105,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "rateLive" | "analytics" | "settings" | "users">("dashboard");
   
   // High-Density/Compact layout toggle (small font separate)
-  const [isCompactLayout, setIsCompactLayout] = useState<boolean>(false);
+  const [isCompactLayout, setIsCompactLayout] = useState<boolean>(true);
 
   // App UI Color Theme State (Dark vs Light)
   const [appTheme, setAppTheme] = useState<"dark" | "light">("dark");
@@ -225,10 +225,7 @@ export default function DashboardPage() {
     initApp();
 
     try {
-      const savedCompact = localStorage.getItem("liverates_compact");
-      if (savedCompact) {
-        setIsCompactLayout(JSON.parse(savedCompact));
-      }
+      setIsCompactLayout(true);
 
       const savedTheme = localStorage.getItem("liverates_app_theme") as "dark" | "light";
       if (savedTheme === "light" || savedTheme === "dark") {
@@ -294,7 +291,9 @@ export default function DashboardPage() {
     if (!loggedInUser) return; // Do not call rate API if user is not logged in
 
     isFetchingRef.current = true;
-    setConnectionStatus("connecting");
+    if (settings.refreshInterval >= 2) {
+      setConnectionStatus("connecting");
+    }
 
     try {
       const res = await fetch("/api/rates", {
@@ -329,15 +328,23 @@ export default function DashboardPage() {
         setFetchCount((c) => c + 1);
       } else {
         setConnectionStatus("disconnected");
-        setError(json.error || "Failed to fetch rates.");
+        const errMsg = json.error || "Failed to fetch rates.";
+        const isRateLimit = errMsg.toLowerCase().includes("rate limit") || errMsg.toLowerCase().includes("login after");
+        if (!isRateLimit) {
+          setError(errMsg);
+        } else {
+          setError(""); // Suppress rate limit errors in UI
+        }
       }
     } catch (err: unknown) {
       setConnectionStatus("disconnected");
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Network error. Check your connection."
-      );
+      const errMsg = err instanceof Error ? err.message : "Network error. Check your connection.";
+      const isRateLimit = errMsg.toLowerCase().includes("rate limit") || errMsg.toLowerCase().includes("login after");
+      if (!isRateLimit) {
+        setError(errMsg);
+      } else {
+        setError(""); // Suppress rate limit errors in UI
+      }
     } finally {
       isFetchingRef.current = false;
     }
@@ -666,14 +673,6 @@ export default function DashboardPage() {
               Sign In
             </button>
           </form>
-
-          <div className="login-tips">
-            <strong>💡 Quick Login Credentials:</strong>
-            <ul>
-              <li><strong>Admin Role:</strong> admin / admin123</li>
-              <li><strong>User Role:</strong> user / user123</li>
-            </ul>
-          </div>
         </div>
       </div>
     );
@@ -682,7 +681,11 @@ export default function DashboardPage() {
   return (
     <>
       <Navbar
-        connectionStatus={connectionStatus}
+        connectionStatus={
+          connectionStatus === "connecting" && settings.refreshInterval < 2
+            ? "connected"
+            : connectionStatus
+        }
         activeTab={activeTab}
         onTabChange={(tab) => {
           setActiveTab(tab);
@@ -898,22 +901,6 @@ export default function DashboardPage() {
                   </svg>
                   Fullscreen Mode
                 </button>
-
-                <div className="layout-toggle-container">
-                  <span className="layout-toggle-label">Compact Layout (Small Font)</span>
-                  <input
-                    type="checkbox"
-                    id="compact-toggle"
-                    checked={isCompactLayout}
-                    onChange={(e) => toggleCompactLayout(e.target.checked)}
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                      cursor: "pointer",
-                      accentColor: "var(--accent-blue)",
-                    }}
-                  />
-                </div>
               </div>
             )}
 
