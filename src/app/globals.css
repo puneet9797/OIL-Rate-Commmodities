@@ -186,7 +186,15 @@ a:hover {
   text-decoration: none;
 }
 
-/* Desktop: hide active dot and label wrappers are transparent */
+/* Desktop: nav section wrappers are invisible, hide labels and active dot */
+.navbar-nav-section {
+  display: contents;
+}
+
+.navbar-section-label {
+  display: none;
+}
+
 .navbar-link-icon,
 .navbar-link-label {
   display: contents;
@@ -194,6 +202,18 @@ a:hover {
 
 .navbar-link-active-dot {
   display: none;
+}
+
+.navbar-profile-avatar {
+  display: none;
+}
+
+.navbar-profile-info {
+  display: contents;
+}
+
+.navbar-footer-row {
+  display: contents;
 }
 
 .navbar-link:hover {

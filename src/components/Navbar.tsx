@@ -107,7 +107,7 @@ export default function Navbar({
         <div className="navbar-brand">
           <div className="navbar-brand-icon">⚡</div>
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-            <span style={{ fontWeight: 850, letterSpacing: "-0.02em", background: "linear-gradient(135deg, #2563eb, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontSize: "1.15rem" }}>RSVPAI</span>
+            <span style={{ fontWeight: 850, letterSpacing: "-0.02em", background: "linear-gradient(135deg, #2563eb, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", fontSize: "1.15rem" }}>RSVPAI Research</span>
             <span style={{ fontSize: "0.62rem", color: "var(--text-muted)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>under JPPL Group</span>
           </div>
         </div>
