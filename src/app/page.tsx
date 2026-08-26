@@ -101,6 +101,11 @@ function resequenceRates(data: RatesData): RatesData {
 }
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Tab View State: 'dashboard' | 'rateLive' | 'analytics' | 'settings' | 'users'
   const [activeTab, setActiveTab] = useState<"dashboard" | "rateLive" | "analytics" | "settings" | "users">("dashboard");
   
@@ -626,6 +631,8 @@ export default function DashboardPage() {
     (r) => r.netChange !== null && r.netChange < 0
   ).length;
   const unchangedCount = totalCommodities - positiveCount - negativeCount;
+
+  if (!mounted) return null;
 
   if (!loggedInUser) {
     return (
